@@ -1,101 +1,97 @@
+"use client"
+
+import { useEffect, useState } from "react";
+import TamperInstancesDropdown from "../components/TamperInstancesDropdown.js"
+import BleIndicator from "@/components/BleIndicator.js";
 import Image from "next/image";
+import bleConnectedSvg from "../ble-connected.svg"
+import bleDisconnectedSvg from "../ble-disconnected.svg"
+
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  var tamperCountCharacteristic, timestampsCharacteristic, tamperTypesCharacteristic;
+
+  const [tamperCount, setTamperCount] = useState(0);
+  const [timestamps, setTimestamps] = useState([])
+  const [tamperTypes, setTamperTypes] = useState([0])
+  const [bleConnected, setBleConnected] = useState(false)
+
+  var device;
+
+  // const getPermission = () => {
+  //   navigator.permissions.query({ name: "bluetooth" })
+  //     .then(btPermission => {
+  //       if (btPermission.state == "denied") {
+  //       }
+  //     }).catch(error => { console.log(error) })
+  // }
+
+  const handleTamperCountChange = async (event) => {
+    setTamperCount(event.target.value.getUint16(0, 1))
+    const timestamps = await timestampsCharacteristic.readValue();
+    const tamperTypesRaw = await tamperTypesCharacteristic.readValue();
+    let tamperTypesSliced = (new Uint8Array(tamperTypesRaw.buffer)).slice(1);
+    setTamperTypes(tamperTypesSliced)
+    timestamps.setUint32(0, 2**32-1, true)
+
+    let timestampUnixArray = new Uint32Array(timestamps.buffer)
+    var timestampDateArray = []
+    for (let i = 0; i < 20; i++) {
+      if (timestampUnixArray[i] == 0) break
+      timestampDateArray.push(new Date(timestampUnixArray[i] * 1000 - 8*3600*1000))
+    }
+    setTimestamps(timestampDateArray.slice(1));
+  }
+
+  const connect = async () => {
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true, optionalServices: ["cd327be0-eb57-42ac-8b17-bc919b162bbb"],
+      // filters: [{services: ["cd327be0-eb57-42ac-8b17-bc919b162bbb"]}]
+    })
+    const server = await device.gatt.connect()
+    const service = await server.getPrimaryService("cd327be0-eb57-42ac-8b17-bc919b162bbb")
+    setBleConnected(server.connected)
+    const characteristics = await service.getCharacteristics()
+    tamperCountCharacteristic = await characteristics[0]
+    timestampsCharacteristic = await characteristics[1]
+    tamperTypesCharacteristic = await characteristics[2];
+    // let setTimestampCharacterisitc = await characteristics[3];
+    // let timestamp = new Int32Array(1)
+    // timestamp[0] = Math.floor(Date.now() / 1000)
+    // setTimestampCharacterisitc.writeValue(timestamp)
+
+    tamperCountCharacteristic.startNotifications()
+
+    characteristics[0].startNotifications()
+    characteristics[0].addEventListener('characteristicvaluechanged', handleTamperCountChange);
+    const value = await characteristics[0].readValue();
+    setTamperCount(value.getUint16(0, 1));
+  }
+
+  return (
+    <div className="flex flex-col bg-[#021526] min-h-screen text-[#d9dcde]">
+      <div className=" flex flex-row w-screen">
+        <img className="w-1/4 sm:w-1/6 md:w-[9vw] object-contain mx-10 mt-5 mr-auto" src="https://www.pmc.sg/wp-content/uploads/2018/11/sst.png" alt="SST Logo"/>
+        <img className="w-1/4 sm:w-1/6 md:w-[12vw] object-contain mx-10 mt-5" src="https://www.logo.wine/a/logo/Infineon_Technologies/Infineon_Technologies-Logo.wine.svg" alt="Infineon Logo"/>
+      </div>
+      <div>
+        <div className="flex flex-col text-center mb-8 w-screen">
+          <p className="text-2xl md:text-4xl mb-10 font-semibold">Tamper Instances Detected</p>
+          {/* <p className="text-2xl md:text-4xl mb-10 font-semibold">Tampering Detection Module</p> */}
+          {/* <p className="text-xl">Tamper Instances Detected:</p> */}
+          <p className="text-6xl m-5">{tamperCount}</p>
+          <div className="grid grid-cols-3 mx-auto mt-10 mb-3">
+            <div/>
+            <button onClick={connect} className="w-fit rounded-2xl px-7 h-16 text-[#000] font-semibold text-xl bg-[#b7b7b7]">Connect to TDM</button>
+            <div className="w-12 h-12 ml-5 my-auto rounded-full flex" style={{backgroundColor: bleConnected ? "#b7b7b7" : "#b7b7b7"}}><Image className="w-7 m-auto" src={bleConnected ? bleConnectedSvg : bleDisconnectedSvg}/></div>
+          </div>
+          {/* <BleIndicator isConnected={bleConnected}/> */}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        {tamperCount > 0 ? (<TamperInstancesDropdown tamperEvents={timestamps} tamperTypes={tamperTypes} />) : <></>}
+      </div>
+      <div className="h-20" />
     </div>
   );
 }
+
