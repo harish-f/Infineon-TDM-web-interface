@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react";
-import TamperInstancesDropdown from "../components/TamperInstancesDropdown.js"
+import TamperInstancesDropdown from "@/components/TamperInstancesDropdown.js"
 import BleIndicator from "@/components/BleIndicator.js";
 import Image from "next/image";
-import bleConnectedSvg from "../ble-connected.svg"
-import bleDisconnectedSvg from "../ble-disconnected.svg"
+import bleConnectedSvg from "@/icons/ble-connected.svg"
+import bleDisconnectedSvg from "@/icons/ble-disconnected.svg"
 
 
 export default function Home() {

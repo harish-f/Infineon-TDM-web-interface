@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import arrow from "../right-arrow.svg"
+import arrow from "@/icons/right-arrow.svg"
 
 const tamperTypesText = ["Unkown Tamper Cause", "Phone Lid Removed", "BMS Disconnect", "Battery Disconnected"]
 
